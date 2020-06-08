@@ -1,3 +1,7 @@
+import PIL
+import numpy as np
+from PIL import ImageEnhance, ImageFont, ImageDraw
+
 # Helper method: Computes the boundary of the image that includes all bboxes
 def compute_reasonable_boundary(labels):
     bounds = [ (x-w/2, x+w/2, y-h/2, y+h/2) for _,x,y,w,h in labels]
