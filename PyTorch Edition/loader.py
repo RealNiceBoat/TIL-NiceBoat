@@ -1,22 +1,14 @@
-from glob import iglob
 from pathlib import Path
 import numpy as np
 from multiprocessing import Pool
 import PIL,json,pickle
-'''
-TILSequence and TILPickle both implement Sequence, a object for easily loading batches used in model training provided by the Tensorflow.
-One loads it directly from the img directory and annotation, the other loads it from a pro-processed pickle of the dataset.
-'''
-
-
-'''
-#if using pyTorch, equivalent is:
 from torch.utils.data import Dataset
-class TILSequence(Dataset):
-	...
 '''
+TILSequence and TILPickle both implement Dataset, a object for easily loading batches.
+One loads it directly from the img directory and annotation, the other loads it from a pro-processed pickle of the dataset.
 from tensorflow.python.keras.utils.data_utils import Sequence
-class TILSequence(Sequence):
+'''
+class TILSequence(Dataset):
 	def __init__(self, img_dir, meta_file, batch_size, augmenter, input_size, label_encoder, preprocessor, testmode=False):
 		self.batch_size = batch_size
 		self.augmenter = augmenter
@@ -25,7 +17,7 @@ class TILSequence(Sequence):
 		self.preprocessor = preprocessor
 		self.testmode = testmode
 
-		imgs_dict = {Path(img).stem:img for img in iglob(f'{img_dir}/*.jpg')}
+		imgs_dict = {Path(img).stem:img for img in Path(img_dir).glob('*.jpg')}
 		with open(meta_file, 'r') as f: annotations_dict = json.load(f)
 		annotations_list = annotations_dict['annotations']
 		
@@ -81,13 +73,8 @@ class TILSequence(Sequence):
 	def get_batch(self, x_acc, y_acc):
 		return self.preprocessor(np.array(x_acc)), {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
 
-'''
-#if using pyTorch, equivalent is:
-from torch.utils.data import Dataset
-class TILSequence(Dataset):
-	...
-'''
-class TILPickle(Sequence):
+
+class TILPickle(Dataset):
 	def __init__(self, pickle_file, batch_size, augmenter, input_size, label_encoder, preprocessor, testmode=False):
 
 		with open(pickle_file, 'rb') as p: self.ids, self.x, self.y = pickle.load(p)
