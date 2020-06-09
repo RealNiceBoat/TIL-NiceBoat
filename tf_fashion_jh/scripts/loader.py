@@ -2,13 +2,13 @@ from pathlib import Path
 import numpy as np
 from multiprocessing import Pool
 import PIL,json,pickle
-from torch.utils.data import Dataset
+from tensorflow.keras.utils import Sequence
 '''
 TILSequence and TILPickle both implement Dataset, a object for easily loading batches.
 One loads it directly from the img directory and annotation, the other loads it from a pro-processed pickle of the dataset.
 from tensorflow.python.keras.utils.data_utils import Sequence
 '''
-class TILSequence(Dataset):
+class TILSequence(Sequence):
 	def __init__(self, img_dir, meta_file, batch_size, augmenter, input_size, label_encoder, preprocessor, testmode=False):
 		self.batch_size = batch_size
 		self.augmenter = augmenter
@@ -55,8 +55,8 @@ class TILSequence(Dataset):
 			W,H = x.size
 			original_img_dims.append((W,H))
 
-			x = x.resize(self.input_res,PIL.Image.LANCZOS)
 			x = x.convert('RGB')
+			x = x.resize(self.input_res,PIL.Image.LANCZOS)
 			x_aug, y_aug = self.augmenter(x,y)
 			x_acc.append(np.array(x_aug))
 			y_dict = self.label_encoder(y_aug)
@@ -65,25 +65,14 @@ class TILSequence(Dataset):
 				if dimkey not in y_acc: y_acc[dimkey] = []
 				y_acc[dimkey].append(label)
 
-		return self.get_batch_test(idx,x_acc,y_acc,original_img_dims) if self.testmode else self.get_batch(x_acc,y_acc)
-
-	def get_batch_test(self, idx, x_acc, y_acc, original_img_dims):
 		batch_ids = self.ids[idx * self.batch_size:(idx + 1) * self.batch_size]
-		batch = {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
-		batch.update({
-			'batch_ids':batch_ids, 
-			'original_img_dims':original_img_dims, 
-			'inputs':self.preprocessor(np.array(x_acc))
-		})
-		return batch
-
-	def get_batch(self, x_acc, y_acc):
-		batch = {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
-		batch['inputs'] = self.preprocessor(np.array(x_acc))
-		return batch
+		x_out = self.preprocessor(np.array(x_acc))
+		y_out = {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
+		if self.testmode: return batch_ids,original_img_dims,x_out,y_out
+		else: return x_out,y_out
 
 
-class TILPickle(Dataset):
+class TILPickle(Sequence):
 	def __init__(self, pickle_file, batch_size, augmenter, input_size, label_encoder, preprocessor, testmode=False):
 
 		with open(pickle_file, 'rb') as p: self.ids, self.x, self.y = pickle.load(p)
@@ -103,16 +92,17 @@ class TILPickle(Dataset):
 
 		x_acc, y_acc = [], {}
 		for x,y in zip(batch_x,batch_y):
+			x = x.convert('RGB')
+			x = x.resize(self.input_res,PIL.Image.LANCZOS)
 			x_aug, y_aug = self.augmenter(x,y)
-			if x_aug.size != self.input_res[:2]: x_aug.resize(self.input_res,PIL.Image.LANCZOS)
 			x_acc.append(np.array(x_aug))
 			y_dict = self.label_encoder(y_aug)
 
 			for dimkey, label in y_dict.items():
 				if dimkey not in y_acc: y_acc[dimkey] = []
-				y_acc[dimkey].append( label )
+				y_acc[dimkey].append(label)
 
-		batch = {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
-		batch['inputs'] = self.preprocessor(np.array(x_acc))
-		if self.testmode: batch['batch_ids'] = batch_ids
-		return batch
+		x_out = self.preprocessor(np.array(x_acc))
+		y_out = {dimkey:np.array(gt_tensor) for dimkey,gt_tensor in y_acc.items()}
+		if self.testmode: return batch_ids,x_out,y_out
+		else: return x_out,y_out
