@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.dataScience.jupyterCommandLineArguments": [
+			"--NotebookApp.iopub_msg_rate_limit=10000000"
+		],
+		"python.dataScience.textOutputLimit": 0
+	}
+}
